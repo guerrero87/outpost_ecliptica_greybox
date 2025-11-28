@@ -1,424 +1,786 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Outpost Ecliptica - Greybox Prototype</title>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background-color: #000;
-            font-family: 'Courier New', Courier, monospace;
-            color: #fff;
-        }
+  <meta charset="UTF-8" />
+  <title>Outpost Ecliptica - Greybox Prototype</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-        #ui-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 20px;
-            box-sizing: border-box;
-        }
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      color: #fff;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
 
-        #center-ui {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            pointer-events: auto;
-        }
+    canvas {
+      display: block;
+    }
 
-        #reticle {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 10px;
-            height: 10px;
-            background-color: rgba(255, 255, 255, 0.5);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-        }
+    #hud {
+      position: fixed;
+      inset: 0 auto auto 0;
+      width: 100%;
+      pointer-events: none;
+      text-shadow: 0 0 4px #000;
+      z-index: 5;
+    }
 
-        .hud-text {
-            text-shadow: 1px 1px 2px #000;
-        }
+    #hud-top {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 10px;
+    }
 
-        #top-center {
-            text-align: center;
-            font-size: 1.2rem;
-        }
+    #cycleStatus {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
 
-        #bottom-left {
-            font-size: 1.2rem;
-        }
+    #timerDisplay {
+      font-size: 14px;
+      opacity: 0.85;
+    }
 
-        #start-screen {
-            background: rgba(0, 0, 0, 0.8);
-            padding: 20px;
-            border: 1px solid #fff;
-            cursor: pointer;
-        }
+    #hud-bottom {
+      position: fixed;
+      bottom: 12px;
+      left: 12px;
+      font-size: 14px;
+      pointer-events: none;
+      z-index: 5;
+    }
 
-        .hidden {
-            display: none !important;
-        }
-    </style>
-    <!-- Import Map for Three.js -->
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-            }
-        }
-    </script>
+    #energyDisplay {
+      margin-bottom: 4px;
+    }
+
+    #healthDisplay {
+      font-size: 13px;
+      opacity: 0.9;
+    }
+
+    #healthDisplay span + span {
+      margin-left: 12px;
+    }
+
+    #crosshair {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 20px;
+      height: 20px;
+      pointer-events: none;
+      z-index: 6;
+    }
+
+    #crosshair::before,
+    #crosshair::after {
+      content: "";
+      position: absolute;
+      background: rgba(255, 255, 255, 0.9);
+    }
+
+    #crosshair::before {
+      left: 50%;
+      top: 0;
+      width: 2px;
+      height: 100%;
+      transform: translateX(-50%);
+    }
+
+    #crosshair::after {
+      top: 50%;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      transform: translateY(-50%);
+    }
+
+    #startOverlay,
+    #gameOverOverlay,
+    #pauseOverlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.75);
+      color: #fff;
+      z-index: 10;
+      text-align: center;
+    }
+
+    #startOverlay.hidden,
+    #gameOverOverlay.hidden,
+    #pauseOverlay.hidden {
+      display: none;
+    }
+
+    #startOverlay .panel,
+    #gameOverOverlay .panel,
+    #pauseOverlay .panel {
+      max-width: 420px;
+      padding: 24px 28px;
+      background: rgba(10, 10, 10, 0.9);
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+    }
+
+    h1 {
+      font-size: 22px;
+      margin-bottom: 8px;
+    }
+
+    p {
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    #hint {
+      font-size: 12px;
+      opacity: 0.8;
+      margin-top: 6px;
+    }
+
+    button {
+      padding: 10px 18px;
+      margin-top: 12px;
+      border: none;
+      background: #1e90ff;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #63b3ff;
+    }
+
+    .safe {
+      color: #7cfc00;
+    }
+
+    .danger {
+      color: #ff4d4f;
+    }
+  </style>
 </head>
-
 <body>
-    <div id="reticle"></div>
-
-    <div id="ui-layer">
-        <div id="top-center" class="hud-text">
-            <div id="cycle-display">WAITING FOR SIGNAL...</div>
-            <div id="timer-display">--:--</div>
-        </div>
-        <div id="center-ui">
-            <div id="start-screen">
-                <h1>OUTPOST ECLIPTICA</h1>
-                <p>CLICK TO INITIALIZE SYSTEM</p>
-                <p>(WASD to Move, Mouse to Look)</p>
-            </div>
-        </div>
-        <div id="bottom-left" class="hud-text">
-            <div>ENERGY: <span id="energy-display">100</span>%</div>
-        </div>
+  <!-- Milestone #1: Environment & Setup - Static scene and basic lighting -->
+  <div id="startOverlay">
+    <div class="panel">
+      <h1>Outpost Ecliptica - Greybox</h1>
+      <p>Maintain the base during power cycles. When the system enters DANGER mode, the door and generator will decay.</p>
+      <p>Look at the Door or Generator and hold Left Mouse Button to repair them using your energy.</p>
+      <p id="hint">Controls: WASD to move · Mouse to look · Click to lock pointer.</p>
+      <button id="startButton">Click to Start</button>
     </div>
+  </div>
+  <div id="pauseOverlay" class="hidden">
+    <div class="panel">
+      <h1>Paused</h1>
+      <p>Simulation paused. Click Resume to continue.</p>
+      <button id="resumeButton">Resume</button>
+    </div>
+  </div>
 
-    <script type="module">
-        import * as THREE from 'three';
-        import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+  <!-- Game Over Overlay -->
+  <div id="gameOverOverlay" class="hidden">
+    <div class="panel">
+      <h1>Base Breached</h1>
+      <p id="gameOverMessage">The door has failed. The outpost has been overrun.</p>
+      <button id="restartButton">Restart Simulation</button>
+    </div>
+  </div>
 
-        // --- 1. Setup Scene, Camera, Renderer ---
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x111111);
-        scene.fog = new THREE.Fog(0x111111, 0, 50);
+  <!-- Milestone #3: Core Logic & UI - HUD elements -->
+  <div id="hud">
+    <div id="hud-top">
+      <div id="cycleStatus" class="safe">SAFE CYCLE - SYSTEMS STABLE</div>
+      <div id="timerDisplay">10.0s</div>
+    </div>
+    <div id="hud-bottom">
+      <div id="energyDisplay">Energy: 100 / 100</div>
+      <div id="healthDisplay">
+        <span id="doorHealthDisplay">Door: 100%</span>
+        <span id="lightHealthDisplay">Generator: 100%</span>
+      </div>
+    </div>
+  </div>
 
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.y = 1.6; // Eye level
+  <!-- Milestone #2: Player Controller - Reticle -->
+  <div id="crosshair"></div>
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true;
-        document.body.appendChild(renderer.domElement);
+  <!-- Three.js + PointerLockControls via CDN (ES Modules) -->
+  <script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.152.2/build/three.module.js';
+    import { PointerLockControls } from 'https://unpkg.com/three@0.152.2/examples/jsm/controls/PointerLockControls.js?module';
+    // Milestone #1: Environment & Setup --------------------------------------------------
+    let scene;
+    let camera;
+    let renderer;
+    let ambientLight;
+    let pointLight;
+    let roomMesh;
+    let doorMesh;
+    let generatorMesh;
+    const wallMeshes = [];
 
-        // --- 2. Scene & Environment ---
-        // Room (Inverted Box)
-        const roomGeometry = new THREE.BoxGeometry(20, 10, 20);
-        const roomMaterial = new THREE.MeshStandardMaterial({ color: 0x444444, side: THREE.BackSide, wireframe: false });
-        const room = new THREE.Mesh(roomGeometry, roomMaterial);
-        room.receiveShadow = true;
-        scene.add(room);
+    const ROOM_SIZE = 10;
+    const ROOM_HALF_SIZE = ROOM_SIZE / 2;
+    const ROOM_HEIGHT = 6;
+    const PLAYER_HEIGHT = 1.6;
+    const PLAYER_RADIUS = 0.6;
+    const GENERATOR_COLLISION_RADIUS = 1.2;
+    const CORRIDOR_WIDTH = 4;
+    const WALL_THICKNESS = 0.4;
 
-        // Grid Helper for floor reference
-        const gridHelper = new THREE.GridHelper(20, 20, 0x555555, 0x222222);
-        scene.add(gridHelper);
+    // Milestone #2: Player Controller ----------------------------------------------------
+    let controls;
+    const keyStates = {};
 
-        // Door (Rectangular Prism)
-        const doorGeometry = new THREE.BoxGeometry(3, 5, 0.5);
-        const doorMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 }); // Starts Green
-        const door = new THREE.Mesh(doorGeometry, doorMaterial);
-        door.position.set(0, 2.5, -9.75); // On the back wall
-        door.castShadow = true;
-        door.receiveShadow = true;
-        door.name = "Door";
-        scene.add(door);
+    // Milestone #3: Core Logic & UI ------------------------------------------------------
+    let cycleState = 'SAFE';
+    const SAFE_DURATION = 10; // seconds
+    const DANGER_DURATION = 20; // seconds
+    let timer = SAFE_DURATION;
 
-        // Generator (Cylinder)
-        const genGeometry = new THREE.CylinderGeometry(1, 1, 3, 16);
-        const genMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffff });
-        const generator = new THREE.Mesh(genGeometry, genMaterial);
-        generator.position.set(5, 1.5, 5); // Corner
-        generator.castShadow = true;
-        generator.receiveShadow = true;
-        generator.name = "Generator";
-        scene.add(generator);
+    let energy = 100;
+    const MAX_ENERGY = 100;
 
-        // --- 3. Lighting ---
-        const ambientLight = new THREE.AmbientLight(0x404040, 0.5); // Soft white light
-        scene.add(ambientLight);
+    let doorHealth = 100;
+    let lightHealth = 100;
+    const MAX_HEALTH = 100;
 
-        const mainLight = new THREE.PointLight(0xffffff, 100, 20);
-        mainLight.position.set(5, 4, 5); // Above generator
-        mainLight.castShadow = true;
-        scene.add(mainLight);
+    let isRepairing = false;
+    let gameOver = false;
+    let gameStarted = false;
+    let isPaused = true;
 
-        // --- Resize Handler ---
-        window.addEventListener('resize', onWindowResize, false);
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
+    const DOOR_DECAY_PER_SEC = 5;
+    const LIGHT_DECAY_PER_SEC = 5;
+    const ENERGY_REGEN_SAFE = 50;
+    const ENERGY_COST_PER_SEC = 10;
+    const REPAIR_PER_SEC = 20;
+    const INTERACT_DISTANCE = 4;
+
+    const clock = new THREE.Clock();
+
+    // Raycasting for interaction
+    const raycaster = new THREE.Raycaster();
+    const interactableMeshes = [];
+
+    // Colors for visual feedback
+    const doorHealthyColor = new THREE.Color(0x00ff00);
+    const doorDamagedColor = new THREE.Color(0xff0000);
+
+    // UI elements
+    const startOverlay = document.getElementById('startOverlay');
+    const startButton = document.getElementById('startButton');
+    const pauseOverlay = document.getElementById('pauseOverlay');
+    const resumeButton = document.getElementById('resumeButton');
+    const gameOverOverlay = document.getElementById('gameOverOverlay');
+    const gameOverMessage = document.getElementById('gameOverMessage');
+    const restartButton = document.getElementById('restartButton');
+
+    const cycleStatusEl = document.getElementById('cycleStatus');
+    const timerDisplayEl = document.getElementById('timerDisplay');
+    const energyDisplayEl = document.getElementById('energyDisplay');
+    const doorHealthDisplayEl = document.getElementById('doorHealthDisplay');
+    const lightHealthDisplayEl = document.getElementById('lightHealthDisplay');
+
+    function initScene() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x000000);
+
+      // Room (inverted box)
+      const roomGeometry = new THREE.BoxGeometry(ROOM_SIZE, ROOM_HEIGHT, ROOM_SIZE);
+      const roomMaterial = new THREE.MeshStandardMaterial({
+        color: 0x7a7a7a,
+        roughness: 0.9,
+        metalness: 0.0,
+        side: THREE.BackSide,
+      });
+      roomMesh = new THREE.Mesh(roomGeometry, roomMaterial);
+      roomMesh.position.y = ROOM_HEIGHT / 2;
+      scene.add(roomMesh);
+
+      // Door (one wall)
+      const doorGeometry = new THREE.BoxGeometry(2, 4, 0.5);
+      const doorMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+      doorMesh = new THREE.Mesh(doorGeometry, doorMaterial);
+      doorMesh.position.set(0, 2, -ROOM_HALF_SIZE + 0.25);
+      scene.add(doorMesh);
+      interactableMeshes.push(doorMesh);
+
+      // Light Generator (cylinder)
+      const generatorGeometry = new THREE.CylinderGeometry(1, 1, 2, 16);
+      const generatorMaterial = new THREE.MeshStandardMaterial({
+        color: 0x00bcd4,
+        emissive: 0x004f6b,
+        emissiveIntensity: 0.6,
+      });
+      generatorMesh = new THREE.Mesh(generatorGeometry, generatorMaterial);
+      generatorMesh.position.set(0, 1, ROOM_HALF_SIZE - 2);
+      scene.add(generatorMesh);
+      interactableMeshes.push(generatorMesh);
+
+      const wallsMaterial = new THREE.MeshStandardMaterial({
+        color: 0x444444,
+        roughness: 0.9,
+        metalness: 0.0,
+      });
+
+      const topWallWidth = ROOM_SIZE - CORRIDOR_WIDTH;
+      const horizontalWallGeometry = new THREE.BoxGeometry(
+        topWallWidth,
+        ROOM_HEIGHT,
+        WALL_THICKNESS
+      );
+      const leftGapEdgeX = -ROOM_HALF_SIZE + CORRIDOR_WIDTH;
+      const rightEdgeX = ROOM_HALF_SIZE;
+      const horizontalWall = new THREE.Mesh(horizontalWallGeometry, wallsMaterial);
+      horizontalWall.position.set(
+        (leftGapEdgeX + rightEdgeX) / 2,
+        ROOM_HEIGHT / 2,
+        1.5
+      );
+      scene.add(horizontalWall);
+      wallMeshes.push(horizontalWall);
+
+      // Lights
+      ambientLight = new THREE.AmbientLight(0xffffff, 0.25);
+      scene.add(ambientLight);
+
+      pointLight = new THREE.PointLight(0xffffff, 1.2, 40);
+      pointLight.position.set(generatorMesh.position.x, 4, generatorMesh.position.z);
+      scene.add(pointLight);
+
+      // Camera & renderer
+      camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+      );
+      camera.position.set(-2, PLAYER_HEIGHT, 3);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      document.body.appendChild(renderer.domElement);
+
+      // PointerLock controls
+      controls = new PointerLockControls(camera, document.body);
+
+      controls.addEventListener('lock', () => {
+        isPaused = false;
+        startOverlay.classList.add('hidden');
+        pauseOverlay.classList.add('hidden');
+      });
+
+      controls.addEventListener('unlock', () => {
+        if (gameOver) {
+          return;
+        }
+        isPaused = true;
+        if (gameStarted) {
+          pauseOverlay.classList.remove('hidden');
+        } else {
+          startOverlay.classList.remove('hidden');
+        }
+      });
+
+      window.addEventListener('resize', onWindowResize);
+
+      document.addEventListener('keydown', onKeyDown);
+      document.addEventListener('keyup', onKeyUp);
+      document.addEventListener('mousedown', onMouseDown);
+      document.addEventListener('mouseup', onMouseUp);
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // Milestone #2: Player Controller ----------------------------------------------------
+    function onKeyDown(event) {
+      keyStates[event.code] = true;
+    }
+
+    function onKeyUp(event) {
+      keyStates[event.code] = false;
+    }
+
+    function onMouseDown(event) {
+      if (event.button !== 0) return; // Left button only
+      if (!controls.isLocked || gameOver) return;
+      isRepairing = true;
+    }
+
+    function onMouseUp(event) {
+      if (event.button !== 0) return;
+      isRepairing = false;
+    }
+
+    function updatePlayer(delta) {
+      const speed = 5; // units per second
+
+      if (keyStates['KeyW']) controls.moveForward(speed * delta);
+      if (keyStates['KeyS']) controls.moveForward(-speed * delta);
+      if (keyStates['KeyA']) controls.moveRight(-speed * delta);
+      if (keyStates['KeyD']) controls.moveRight(speed * delta);
+
+      constrainPlayerPosition();
+    }
+
+    function constrainPlayerPosition() {
+      const limit = ROOM_HALF_SIZE - 1;
+      const pos = camera.position;
+
+      pos.x = Math.max(-limit, Math.min(limit, pos.x));
+      pos.z = Math.max(-limit, Math.min(limit, pos.z));
+      pos.y = PLAYER_HEIGHT; // keep player grounded
+
+      applyCollisions();
+    }
+
+    function applyCollisions() {
+      const pos = camera.position;
+
+      // Generator collision approximated as circle in XZ plane
+      if (generatorMesh) {
+        const generatorPos = generatorMesh.position;
+        const dx = pos.x - generatorPos.x;
+        const dz = pos.z - generatorPos.z;
+        const distSq = dx * dx + dz * dz;
+        const minDist = GENERATOR_COLLISION_RADIUS + PLAYER_RADIUS;
+
+        if (distSq < minDist * minDist) {
+          const dist = Math.sqrt(distSq) || 0.0001;
+          const overlap = minDist - dist;
+          pos.x += (dx / dist) * overlap;
+          pos.z += (dz / dist) * overlap;
+        }
+      }
+
+      if (doorMesh) {
+        const halfDoorWidth = 1; // door width is 2
+        const doorFrontZ = doorMesh.position.z + 0.25; // front face towards room
+        const withinDoorWidth =
+          pos.x > doorMesh.position.x - halfDoorWidth - PLAYER_RADIUS &&
+          pos.x < doorMesh.position.x + halfDoorWidth + PLAYER_RADIUS;
+
+        if (withinDoorWidth && pos.z < doorFrontZ + PLAYER_RADIUS) {
+          pos.z = doorFrontZ + PLAYER_RADIUS;
+        }
+      }
+
+      for (const wall of wallMeshes) {
+        const geom = wall.geometry;
+        if (!geom || !geom.parameters) continue;
+
+        const halfWidth = geom.parameters.width / 2;
+        const halfDepth = geom.parameters.depth / 2;
+        const centerX = wall.position.x;
+        const centerZ = wall.position.z;
+
+        const dx = pos.x - centerX;
+        const dz = pos.z - centerZ;
+
+        const overlapX = halfWidth + PLAYER_RADIUS - Math.abs(dx);
+        const overlapZ = halfDepth + PLAYER_RADIUS - Math.abs(dz);
+
+        if (overlapX > 0 && overlapZ > 0) {
+          if (overlapX < overlapZ) {
+            pos.x += dx < 0 ? -overlapX : overlapX;
+          } else {
+            pos.z += dz < 0 ? -overlapZ : overlapZ;
+          }
+        }
+      }
+    }
+
+    // Milestone #4: Interaction & Game Loop ---------------------------------------------
+    function getFocusedInteractable() {
+      const direction = new THREE.Vector3();
+      camera.getWorldDirection(direction);
+      raycaster.set(camera.position, direction);
+
+      const intersects = raycaster.intersectObjects(interactableMeshes, false);
+      if (intersects.length === 0) return null;
+
+      const hit = intersects[0];
+      if (hit.distance > INTERACT_DISTANCE) return null;
+
+      if (hit.object === doorMesh) return 'door';
+      if (hit.object === generatorMesh) return 'generator';
+      return null;
+    }
+
+    function updateRepair(delta) {
+      if (!isRepairing) {
+        return;
+      }
+
+      const target = getFocusedInteractable();
+      if (!target) {
+        return;
+      }
+
+      if (energy <= 0) {
+        isRepairing = false;
+        return;
+      }
+
+      const energyCost = ENERGY_COST_PER_SEC * delta;
+      const repairAmount = REPAIR_PER_SEC * delta;
+
+      let repaired = false;
+
+      if (target === 'door' && doorHealth < MAX_HEALTH) {
+        doorHealth = Math.min(MAX_HEALTH, doorHealth + repairAmount);
+        repaired = true;
+      } else if (target === 'generator' && lightHealth < MAX_HEALTH) {
+        lightHealth = Math.min(MAX_HEALTH, lightHealth + repairAmount);
+        repaired = true;
+      }
+
+      if (repaired) {
+        energy = Math.max(0, energy - energyCost);
+        if (energy <= 0) {
+          isRepairing = false;
+        }
+      }
+    }
+
+    function updateCycle(delta) {
+      timer -= delta;
+
+      if (timer <= 0) {
+        if (cycleState === 'SAFE') {
+          cycleState = 'DANGER';
+          timer = DANGER_DURATION;
+        } else {
+          cycleState = 'SAFE';
+          timer = SAFE_DURATION;
+          // On start of SAFE cycle, refill energy
+          energy = Math.min(MAX_ENERGY, energy + ENERGY_REGEN_SAFE);
+        }
+      }
+    }
+
+    function updateDecay(delta) {
+      if (cycleState !== 'DANGER') return;
+
+      const doorDecay = DOOR_DECAY_PER_SEC * delta;
+      const lightDecay = LIGHT_DECAY_PER_SEC * delta;
+
+      doorHealth = Math.max(0, doorHealth - doorDecay);
+      lightHealth = Math.max(0, lightHealth - lightDecay);
+
+      if (doorHealth <= 0 && !gameOver) {
+        triggerGameOver();
+      }
+    }
+
+    function updateVisuals() {
+      // Door color from green (healthy) to red (broken)
+      const t = THREE.MathUtils.clamp(doorHealth / MAX_HEALTH, 0, 1);
+      doorMesh.material.color.copy(doorDamagedColor).lerp(doorHealthyColor, t);
+
+      // Light intensity based on generator health
+      const clampedLightHealth = THREE.MathUtils.clamp(lightHealth, 0, MAX_HEALTH);
+      const lightHealthNormalized = clampedLightHealth / MAX_HEALTH;
+
+      const pointIntensity = THREE.MathUtils.lerp(0.02, 1.8, lightHealthNormalized);
+      pointLight.intensity = pointIntensity;
+
+      const ambientIntensity = THREE.MathUtils.lerp(0.01, 0.25, lightHealthNormalized);
+      ambientLight.intensity = ambientIntensity;
+
+      if (generatorMesh.material && generatorMesh.material.emissive) {
+        const emissiveStrength = THREE.MathUtils.lerp(0.05, 1.0, lightHealthNormalized);
+        generatorMesh.material.emissiveIntensity = emissiveStrength;
+      }
+    }
+
+    function updateUI() {
+      if (cycleState === 'SAFE') {
+        cycleStatusEl.textContent = 'SAFE CYCLE - SYSTEMS STABLE';
+        cycleStatusEl.classList.remove('danger');
+        cycleStatusEl.classList.add('safe');
+      } else {
+        cycleStatusEl.textContent = 'DANGER CYCLE - SURVIVE';
+        cycleStatusEl.classList.remove('safe');
+        cycleStatusEl.classList.add('danger');
+      }
+
+      timerDisplayEl.textContent = timer.toFixed(1) + 's';
+      energyDisplayEl.textContent = 'Energy: ' + Math.round(energy) + ' / ' + MAX_ENERGY;
+      doorHealthDisplayEl.textContent = 'Door: ' + Math.round(doorHealth) + '%';
+      lightHealthDisplayEl.textContent = 'Generator: ' + Math.round(lightHealth) + '%';
+    }
+
+    function triggerGameOver() {
+      gameOver = true;
+      isRepairing = false;
+      gameOverMessage.textContent = 'The door has failed. The outpost has been overrun.';
+      gameOverOverlay.classList.remove('hidden');
+
+      if (controls.isLocked) {
+        controls.unlock();
+      }
+    }
+
+    function restartGame() {
+      cycleState = 'SAFE';
+      timer = SAFE_DURATION;
+      energy = MAX_ENERGY;
+      doorHealth = MAX_HEALTH;
+      lightHealth = MAX_HEALTH;
+      isRepairing = false;
+      gameOver = false;
+      isPaused = true;
+
+      camera.position.set(-2, PLAYER_HEIGHT, 3);
+
+      gameOverOverlay.classList.add('hidden');
+      pauseOverlay.classList.add('hidden');
+      startOverlay.classList.remove('hidden');
+      updateVisuals();
+      updateUI();
+    }
+
+    function updateGame(delta) {
+      updateCycle(delta);
+      updateDecay(delta);
+      updateRepair(delta);
+      updateVisuals();
+      updateUI();
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+
+      if (gameStarted && !gameOver && !isPaused) {
+        updatePlayer(delta);
+        updateGame(delta);
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // Simple configuration self-checks (lightweight tests)
+    function runSelfTests() {
+      console.groupCollapsed('Outpost Ecliptica - Self Tests');
+      try {
+        console.assert(SAFE_DURATION > 0 && DANGER_DURATION > 0, 'Cycle durations must be positive');
+        console.assert(ENERGY_REGEN_SAFE > 0, 'Energy regeneration must be positive');
+        console.assert(MAX_HEALTH === 100, 'Max health should be 100');
+        console.assert(MAX_ENERGY === 100, 'Max energy should be 100');
+        console.assert(pauseOverlay, 'Pause overlay should exist');
+        const originalLightHealth = lightHealth;
+
+        lightHealth = 0;
+        updateVisuals();
+        console.assert(pointLight.intensity <= 0.05, 'Point light should be almost off at 0% generator');
+        console.assert(ambientLight.intensity <= 0.03, 'Ambient light should be almost off at 0% generator');
+
+        lightHealth = MAX_HEALTH;
+        updateVisuals();
+        console.assert(pointLight.intensity >= 1.5, 'Point light should be strong at full generator health');
+        console.assert(ambientLight.intensity >= 0.2, 'Ambient light should be strong at full generator health');
+
+        lightHealth = originalLightHealth;
+        updateVisuals();
+
+        const originalCameraPos = camera.position.clone();
+
+        camera.position.set(generatorMesh.position.x, PLAYER_HEIGHT, generatorMesh.position.z);
+        constrainPlayerPosition();
+        const dx = camera.position.x - generatorMesh.position.x;
+        const dz = camera.position.z - generatorMesh.position.z;
+        const distToGenerator = Math.sqrt(dx * dx + dz * dz);
+        const minGeneratorDist = GENERATOR_COLLISION_RADIUS + PLAYER_RADIUS - 0.01;
+        console.assert(
+          distToGenerator >= minGeneratorDist,
+          'Player collision with generator should prevent overlap'
+        );
+
+        if (wallMeshes.length > 0) {
+          const testWall = wallMeshes[0];
+          const geom = testWall.geometry;
+          if (geom && geom.parameters) {
+            const halfDepth = geom.parameters.depth / 2;
+            const minWallDist = halfDepth + PLAYER_RADIUS - 0.01;
+            camera.position.set(testWall.position.x, PLAYER_HEIGHT, testWall.position.z);
+            constrainPlayerPosition();
+            const distToWallCenterZ = Math.abs(camera.position.z - testWall.position.z);
+            console.assert(
+              distToWallCenterZ >= minWallDist,
+              'Player collision with interior wall should prevent overlap'
+            );
+          }
         }
 
-        // --- 4. Controls & Movement ---
-        const controls = new PointerLockControls(camera, document.body);
+        camera.position.copy(originalCameraPos);
 
-        const startScreen = document.getElementById('start-screen');
-        const centerUI = document.getElementById('center-ui');
+        console.log('Basic configuration and collision tests passed.');
+      } catch (e) {
+        console.error('Self tests encountered an error', e);
+      }
+      console.groupEnd();
+    }
 
-        startScreen.addEventListener('click', function () {
-            controls.lock();
-        });
+    // Bootstrapping ----------------------------------------------------------------
+    initScene();
+    updateVisuals();
+    updateUI();
+    runSelfTests();
+    animate();
 
-        controls.addEventListener('lock', function () {
-            centerUI.style.display = 'none';
-        });
+    startButton.addEventListener('click', () => {
+      gameStarted = true;
+      if (!gameOver) {
+        controls.lock();
+      }
+    });
 
-        controls.addEventListener('unlock', function () {
-            if (!gameState.gameOver) {
-                centerUI.style.display = 'block';
-                startScreen.innerHTML = '<h1>PAUSED</h1><p>CLICK TO RESUME</p>';
-            }
-        });
+    restartButton.addEventListener('click', () => {
+      restartGame();
+    });
 
-        // Movement State
-        let moveForward = false;
-        let moveBackward = false;
-        let moveLeft = false;
-        let moveRight = false;
+    resumeButton.addEventListener('click', () => {
+      if (gameStarted && !gameOver) {
+        controls.lock();
+      }
+    });
 
-        const velocity = new THREE.Vector3();
-        const direction = new THREE.Vector3();
-        const speed = 10.0; // Units per second
-
-        const onKeyDown = function (event) {
-            switch (event.code) {
-                case 'ArrowUp':
-                case 'KeyW':
-                    moveForward = true;
-                    break;
-                case 'ArrowLeft':
-                case 'KeyA':
-                    moveLeft = true;
-                    break;
-                case 'ArrowDown':
-                case 'KeyS':
-                    moveBackward = true;
-                    break;
-                case 'ArrowRight':
-                case 'KeyD':
-                    moveRight = true;
-                    break;
-            }
-        };
-
-        const onKeyUp = function (event) {
-            switch (event.code) {
-                case 'ArrowUp':
-                case 'KeyW':
-                    moveForward = false;
-                    break;
-                case 'ArrowLeft':
-                case 'KeyA':
-                    moveLeft = false;
-                    break;
-                case 'ArrowDown':
-                case 'KeyS':
-                    moveBackward = false;
-                    break;
-                case 'ArrowRight':
-                case 'KeyD':
-                    moveRight = false;
-                    break;
-            }
-        };
-
-        document.addEventListener('keydown', onKeyDown);
-        document.addEventListener('keyup', onKeyUp);
-
-        // Clock for Delta Time
-        const clock = new THREE.Clock();
-
-        // --- 5. Core Logic & UI ---
-        const CYCLE_SAFE = 'SAFE';
-        const CYCLE_DANGER = 'DANGER';
-
-        let gameState = {
-            cycle: CYCLE_SAFE,
-            timer: 10.0, // Starts with Safe cycle duration
-            energy: 100,
-            doorHealth: 100,
-            lightHealth: 100,
-            isRepairing: false,
-            gameOver: false
-        };
-
-        const uiElements = {
-            cycle: document.getElementById('cycle-display'),
-            timer: document.getElementById('timer-display'),
-            energy: document.getElementById('energy-display'),
-            topCenter: document.getElementById('top-center')
-        };
-
-        function switchCycle(newCycle) {
-            gameState.cycle = newCycle;
-            if (newCycle === CYCLE_SAFE) {
-                gameState.timer = 10.0;
-                gameState.energy = Math.min(gameState.energy + 50, 100); // Refill energy
-                uiElements.cycle.innerText = "SAFE CYCLE - SYSTEMS STABLE";
-                uiElements.cycle.style.color = "#00ff00";
-                uiElements.topCenter.style.color = "#00ff00";
-            } else {
-                gameState.timer = 20.0;
-                uiElements.cycle.innerText = "DANGER CYCLE - SURVIVE";
-                uiElements.cycle.style.color = "#ff0000";
-                uiElements.topCenter.style.color = "#ff0000";
-            }
+    document.addEventListener('keydown', (event) => {
+      if (event.code === 'Escape') {
+        if (controls.isLocked) {
+          controls.unlock();
         }
-
-        // Initialize UI
-        switchCycle(CYCLE_SAFE);
-
-        // --- 6. Interaction & Polish ---
-        const raycaster = new THREE.Raycaster();
-        const center = new THREE.Vector2(0, 0); // Center of screen
-
-        // Mouse Events for Repair
-        document.addEventListener('mousedown', function (event) {
-            if (controls.isLocked && event.button === 0) { // Left Click
-                gameState.isRepairing = true;
-            }
-        });
-
-        document.addEventListener('mouseup', function () {
-            gameState.isRepairing = false;
-        });
-
-        function triggerGameOver() {
-            gameState.gameOver = true;
-            controls.unlock();
-            startScreen.innerHTML = '<h1 style="color:red">GAME OVER</h1><p>SYSTEM FAILURE. DOOR BREACHED.</p><p>CLICK TO RESTART</p>';
-            startScreen.onclick = function () {
-                location.reload();
-            };
-            centerUI.style.display = 'block';
-        }
-
-        function updateGameLogic(delta) {
-            if (gameState.gameOver) return;
-
-            // Timer Logic
-            gameState.timer -= delta;
-            if (gameState.timer <= 0) {
-                if (gameState.cycle === CYCLE_SAFE) {
-                    switchCycle(CYCLE_DANGER);
-                } else {
-                    switchCycle(CYCLE_SAFE);
-                }
-            }
-
-            // --- Interaction Logic ---
-            raycaster.setFromCamera(center, camera);
-            const intersects = raycaster.intersectObjects(scene.children);
-            let target = null;
-
-            if (intersects.length > 0) {
-                if (intersects[0].distance < 4) {
-                    target = intersects[0].object;
-                }
-            }
-
-            // Repair Logic
-            if (gameState.isRepairing && gameState.energy > 0 && target) {
-                if (target.name === "Door") {
-                    gameState.energy -= 10 * delta;
-                    gameState.doorHealth = Math.min(gameState.doorHealth + 20 * delta, 100);
-                } else if (target.name === "Generator") {
-                    gameState.energy -= 10 * delta;
-                    gameState.lightHealth = Math.min(gameState.lightHealth + 20 * delta, 100);
-                }
-                if (gameState.energy < 0) gameState.energy = 0;
-            }
-
-            // --- Danger Cycle Decay ---
-            if (gameState.cycle === CYCLE_DANGER) {
-                const decayRate = 5.0; // HP per second
-                gameState.doorHealth -= decayRate * delta;
-                gameState.lightHealth -= decayRate * delta;
-            }
-
-            // Clamp Healths
-            if (gameState.doorHealth < 0) gameState.doorHealth = 0;
-            if (gameState.lightHealth < 0) gameState.lightHealth = 0;
-
-            // --- Visual Feedback ---
-            // Door Color: Green (100) -> Red (0)
-            const healthRatio = gameState.doorHealth / 100;
-            door.material.color.setRGB(1 - healthRatio, healthRatio, 0);
-
-            // Light Intensity
-            mainLight.intensity = (gameState.lightHealth / 100) * 100; // Base intensity 100
-
-            // --- Game Over Check ---
-            if (gameState.doorHealth <= 0) {
-                triggerGameOver();
-            }
-
-            // Update UI
-            uiElements.timer.innerText = gameState.timer.toFixed(1);
-            uiElements.energy.innerText = Math.floor(gameState.energy);
-        }
-
-        // --- Animation Loop ---
-        function animate() {
-            requestAnimationFrame(animate);
-
-            if (gameState.gameOver) return;
-
-            const delta = clock.getDelta();
-
-            // Update Logic
-            updateGameLogic(delta);
-
-            if (controls.isLocked === true) {
-                // Decay velocity (simple friction)
-                velocity.x -= velocity.x * 10.0 * delta;
-                velocity.z -= velocity.z * 10.0 * delta;
-
-                direction.z = Number(moveForward) - Number(moveBackward);
-                direction.x = Number(moveRight) - Number(moveLeft);
-                direction.normalize(); // this ensures consistent movements in all directions
-
-                if (moveForward || moveBackward) velocity.z -= direction.z * 100.0 * delta; // Acceleration
-                if (moveLeft || moveRight) velocity.x -= direction.x * 100.0 * delta;
-
-                // Apply Velocity
-                controls.moveRight(-velocity.x * delta * 0.1 * speed);
-                controls.moveForward(-velocity.z * delta * 0.1 * speed);
-
-                // Collision Detection (Simple Room Bounds)
-                const boundary = 9.0;
-                if (camera.position.x < -boundary) camera.position.x = -boundary;
-                if (camera.position.x > boundary) camera.position.x = boundary;
-                if (camera.position.z < -boundary) camera.position.z = -boundary;
-                if (camera.position.z > boundary) camera.position.z = boundary;
-            }
-
-            renderer.render(scene, camera);
-        }
-        animate();
-
-    </script>
+      }
+    });
+  </script>
 </body>
-
 </html>
